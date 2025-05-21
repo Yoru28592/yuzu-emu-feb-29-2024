@@ -20,8 +20,11 @@ class QWindow;
 
 namespace VkDeviceInfo {
 Record::Record(std::string_view name_, const std::vector<VkPresentModeKHR>& vsync_modes_,
-               bool has_broken_compute_)
-    : name{name_}, vsync_support{vsync_modes_}, has_broken_compute{has_broken_compute_} {}
+               bool has_broken_compute_, std::vector<std::string> extensions_)
+    : name{name_},
+      vsync_support{vsync_modes_},
+      has_broken_compute{has_broken_compute_},
+      extensions{std::move(extensions_)} {}
 
 Record::~Record() = default;
 
@@ -59,7 +62,15 @@ void PopulateRecords(std::vector<Record>& records, QWindow* window) try {
         bool has_broken_compute{Vulkan::Device::CheckBrokenCompute(
             driver_properties.driverID, properties.properties.driverVersion)};
 
-        records.push_back(VkDeviceInfo::Record(name, present_modes, has_broken_compute));
+        std::vector<std::string> extension_names;
+        const auto extension_properties = physical_device.EnumerateDeviceExtensionProperties();
+        extension_names.reserve(extension_properties.size());
+        for (const auto& prop : extension_properties) {
+            extension_names.emplace_back(prop.extensionName.data());
+        }
+
+        records.push_back(
+            VkDeviceInfo::Record(name, present_modes, has_broken_compute, std::move(extension_names)));
     }
 } catch (const Vulkan::vk::Exception& exception) {
     LOG_ERROR(Frontend, "Failed to enumerate devices with error: {}", exception.what());

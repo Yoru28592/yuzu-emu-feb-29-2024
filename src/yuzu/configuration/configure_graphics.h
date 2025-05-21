@@ -113,4 +113,11 @@ private:
     QWidget* shader_backend_widget;
     QComboBox* aspect_ratio_combobox;
     QComboBox* resolution_combobox;
+
+    // GPU Extensions Tab UI Elements
+    class QTabWidget* graphicsTabWidget;
+    class QWidget* gpuExtensionsTab;
+    class QCheckBox* enable_dynamic_state_checkbox;
+    class QLabel* dynamic_state_description_label;
+    class QListWidget* gpu_extensions_listwidget;
 };
