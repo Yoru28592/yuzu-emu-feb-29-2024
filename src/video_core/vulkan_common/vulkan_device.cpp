@@ -1025,6 +1025,40 @@ bool Device::GetSuitability(bool requires_swapchain) {
 
     FOR_EACH_VK_FEATURE_1_1(FEATURE);
     FOR_EACH_VK_FEATURE_EXT(EXT_FEATURE);
+
+    // Handle VK_EXT_extended_dynamic_state and VK_EXT_extended_dynamic_state2 based on setting
+    if (Settings::values.enable_dynamic_state.GetValue()) {
+        if (extensions.extended_dynamic_state) {
+            // Already added to loaded_extensions by FOR_EACH_VK_FEATURE_EXT if supported
+            // Ensure its feature struct is in the chain and set its main toggle
+            if (features.extended_dynamic_state.sType != VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT) {
+                 features.extended_dynamic_state.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT;
+                 SetNext(next, features.extended_dynamic_state);
+            }
+            // We will enable all sub-features later after physical.GetFeatures2
+        }
+        if (extensions.extended_dynamic_state2) {
+            // Already added to loaded_extensions by FOR_EACH_VK_FEATURE_EXT if supported
+            // Ensure its feature struct is in the chain and set its main toggle
+            if (features.extended_dynamic_state2.sType != VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_2_FEATURES_EXT) {
+                features.extended_dynamic_state2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_2_FEATURES_EXT;
+                SetNext(next, features.extended_dynamic_state2);
+            }
+            // We will enable all sub-features later after physical.GetFeatures2
+        }
+    } else {
+        // If setting is OFF, explicitly remove them from loaded_extensions and mark extensions as false
+        // The feature structs might still be in the chain but their toggles will be false or handled by RemoveUnsuitableExtensions
+        if (loaded_extensions.count(VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME)) {
+            loaded_extensions.erase(VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME);
+            extensions.extended_dynamic_state = false;
+        }
+        if (loaded_extensions.count(VK_EXT_EXTENDED_DYNAMIC_STATE_2_EXTENSION_NAME)) {
+            loaded_extensions.erase(VK_EXT_EXTENDED_DYNAMIC_STATE_2_EXTENSION_NAME);
+            extensions.extended_dynamic_state2 = false;
+        }
+    }
+
     if (instance_version >= VK_API_VERSION_1_2) {
         FOR_EACH_VK_FEATURE_1_2(FEATURE);
     } else {
@@ -1042,6 +1076,38 @@ bool Device::GetSuitability(bool requires_swapchain) {
     // Perform the feature test.
     physical.GetFeatures2(features2);
     features.features = features2.features;
+
+    // If enable_dynamic_state is true, enable all supported sub-features for the dynamic state extensions
+    if (Settings::values.enable_dynamic_state.GetValue()) {
+        if (extensions.extended_dynamic_state) {
+            // features.extended_dynamic_state is now populated by physical.GetFeatures2
+            // Enable the main toggle if supported by hardware.
+            // All other sub-features of extended_dynamic_state are implicitly covered by this single toggle.
+            features.extended_dynamic_state.extendedDynamicState = features.extended_dynamic_state.extendedDynamicState; // Keep it if supported
+        }
+        if (extensions.extended_dynamic_state2) {
+            // features.extended_dynamic_state2 is now populated by physical.GetFeatures2
+            // Enable all supported features within this struct
+            VkPhysicalDeviceExtendedDynamicState2FeaturesEXT& eds2_feats = features.extended_dynamic_state2;
+            eds2_feats.extendedDynamicState2                                = eds2_feats.extendedDynamicState2;
+            eds2_feats.extendedDynamicState2LogicOp                         = eds2_feats.extendedDynamicState2LogicOp;
+            eds2_feats.extendedDynamicState2PatchControlPoints              = eds2_feats.extendedDynamicState2PatchControlPoints;
+            // Note: ColorBlendEnable, ColorBlendEquation, ColorWriteMask, RasterizerDiscardEnable
+            // are part of VK_EXT_extended_dynamic_state3, not VK_EXT_extended_dynamic_state2.
+            // VK_EXT_extended_dynamic_state2 primarily adds extendedDynamicState2 itself, LogicOp, and PatchControlPoints.
+        }
+    } else {
+        // If setting is OFF, ensure main toggles for these features are off.
+        // This is belt-and-suspenders as RemoveUnsuitableExtensions or initial setup should handle this.
+        if (extensions.extended_dynamic_state) { // Check if it was ever considered (i.e. supported)
+            features.extended_dynamic_state.extendedDynamicState = VK_FALSE;
+        }
+        if (extensions.extended_dynamic_state2) { // Check if it was ever considered
+            features.extended_dynamic_state2.extendedDynamicState2 = VK_FALSE;
+            features.extended_dynamic_state2.extendedDynamicState2LogicOp = VK_FALSE;
+            features.extended_dynamic_state2.extendedDynamicState2PatchControlPoints = VK_FALSE;
+        }
+    }
 
     // Some features are mandatory. Check those.
 #define CHECK_FEATURE(feature, name)                                                               \
@@ -1150,13 +1216,26 @@ void Device::RemoveUnsuitableExtensions() {
                                        VK_EXT_DEPTH_CLIP_CONTROL_EXTENSION_NAME);
 
     // VK_EXT_extended_dynamic_state
-    extensions.extended_dynamic_state = features.extended_dynamic_state.extendedDynamicState;
+    // The master setting Settings::values.enable_dynamic_state has final say.
+    // If it's false, extensions.extended_dynamic_state would have been set to false earlier.
+    // If it's true, we rely on hardware support.
+    extensions.extended_dynamic_state = Settings::values.enable_dynamic_state.GetValue() &&
+                                        extensions.extended_dynamic_state &&
+                                        features.extended_dynamic_state.extendedDynamicState;
     RemoveExtensionFeatureIfUnsuitable(extensions.extended_dynamic_state,
                                        features.extended_dynamic_state,
                                        VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME);
 
     // VK_EXT_extended_dynamic_state2
-    extensions.extended_dynamic_state2 = features.extended_dynamic_state2.extendedDynamicState2;
+    // Similar logic for extended_dynamic_state2
+    extensions.extended_dynamic_state2 = Settings::values.enable_dynamic_state.GetValue() &&
+                                         extensions.extended_dynamic_state2 &&
+                                         features.extended_dynamic_state2.extendedDynamicState2;
+    // If the main toggle for EDS2 is false (either by setting or hw support), also make sub-features false.
+    if (!features.extended_dynamic_state2.extendedDynamicState2) {
+        features.extended_dynamic_state2.extendedDynamicState2LogicOp = VK_FALSE;
+        features.extended_dynamic_state2.extendedDynamicState2PatchControlPoints = VK_FALSE;
+    }
     RemoveExtensionFeatureIfUnsuitable(extensions.extended_dynamic_state2,
                                        features.extended_dynamic_state2,
                                        VK_EXT_EXTENDED_DYNAMIC_STATE_2_EXTENSION_NAME);
