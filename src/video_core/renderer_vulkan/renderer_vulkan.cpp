@@ -104,7 +104,7 @@ RendererVulkan::RendererVulkan(Core::TelemetrySession& telemetry_session_,
                                std::unique_ptr<Core::Frontend::GraphicsContext> context_) try
     : RendererBase(emu_window, std::move(context_)), telemetry_session(telemetry_session_),
       device_memory(device_memory_), gpu(gpu_), library(OpenLibrary(context.get())),
-      instance(CreateInstance(*library, dld, VK_API_VERSION_1_1, render_window.GetWindowInfo().type,
+      instance(CreateInstance(*library, dld, VK_API_VERSION_1_3, render_window.GetWindowInfo().type,
                               Settings::values.renderer_debug.GetValue())),
       debug_messenger(Settings::values.renderer_debug ? CreateDebugUtilsCallback(instance)
                                                       : vk::DebugUtilsMessenger{}),
