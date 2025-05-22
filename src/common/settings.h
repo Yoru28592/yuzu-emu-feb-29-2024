@@ -62,6 +62,7 @@ SWITCHABLE(AntiAliasing, false);
 SWITCHABLE(AspectRatio, true);
 SWITCHABLE(AstcDecodeMode, true);
 SWITCHABLE(AstcRecompression, true);
+SWITCHABLE(ShaderAccuracyMode, true);
 SWITCHABLE(AudioMode, true);
 SWITCHABLE(CpuBackend, true);
 SWITCHABLE(CpuAccuracy, true);
@@ -427,6 +428,14 @@ struct Values {
                                                    Category::RendererAdvanced};
     SwitchableSetting<bool> enable_dynamic_state{linkage, false, "enable_dynamic_state",
                                                  Category::RendererAdvanced};
+    SwitchableSetting<VertexClampingMode, true> vertex_clamping_mode{
+        linkage, VertexClampingMode::Disabled, VertexClampingMode::Disabled,
+        VertexClampingMode::Aggressive, "vertex_clamping", Category::RendererAdvanced};
+    SwitchableSetting<bool> recompress_astc_textures{linkage, false, "recompress_astc_textures",
+                                                     Category::RendererAdvanced};
+    SwitchableSetting<ShaderAccuracyMode, true> shader_accuracy_mode{
+        linkage, ShaderAccuracyMode::Fast, ShaderAccuracyMode::Fast, ShaderAccuracyMode::Accurate,
+        "shader_accuracy_mode", Category::RendererAdvanced};
 
     Setting<bool> renderer_debug{linkage, false, "debug", Category::RendererDebug};
     Setting<bool> renderer_shader_feedback{linkage, false, "shader_feedback",
@@ -439,6 +448,7 @@ struct Values {
                                           Category::RendererDebug};
     Setting<bool> disable_buffer_reorder{linkage, false, "disable_buffer_reorder",
                                          Category::RendererDebug};
+    SwitchableSetting<bool> opengl_disable_fast_buffer_sub_data{linkage, false, "opengl_disable_fast_buffer_sub_data", Category::RendererDebug};
 
     // System
     SwitchableSetting<Language, true> language_index{linkage,

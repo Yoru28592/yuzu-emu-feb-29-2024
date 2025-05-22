@@ -40,6 +40,61 @@
            <property name="bottomMargin">
             <number>0</number>
            </property>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_VertexClamping">
+             <item>
+              <widget class="QLabel" name="label_VertexClamping">
+               <property name="text">
+                <string>Vertex Clamping:</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QComboBox" name="vertex_clamping"/>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="recompress_astc_textures">
+             <property name="text">
+              <string>Recompress ASTC Textures (Improves Stability)</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_ShaderAccuracy">
+             <item>
+              <widget class="QLabel" name="label_ShaderAccuracy">
+               <property name="text">
+                <string>Shader Accuracy:</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QComboBox" name="shader_accuracy_mode_combobox"/>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="enable_nvidia_byte_swap_workaround">
+             <property name="toolTip">
+              <string>This is a workaround for a specific NVIDIA driver bug seen in Super Mario RPG. It may or may not improve stability or performance in other titles.</string>
+             </property>
+             <property name="text">
+              <string>Enable NVIDIA Byte Swap Workaround (Super Mario RPG)</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="opengl_disable_fast_buffer_sub_data">
+             <property name="toolTip">
+              <string>May help with buffer update issues on some OpenGL drivers, potentially at a performance cost. Default is unchecked (Fast path enabled).</string>
+             </property>
+             <property name="text">
+              <string>Disable Fast Buffer Sub-Data (OpenGL only)</string>
+             </property>
+            </widget>
+           </item>
           </layout>
          </widget>
         </item>

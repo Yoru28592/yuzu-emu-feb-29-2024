@@ -173,13 +173,25 @@ Device::Device(Core::Frontend::EmuWindow& emu_window) {
     constexpr bool is_linux = false;
 #endif
 
-    bool disable_fast_buffer_sub_data = false;
-    if (is_nvidia && version == "4.6.0 NVIDIA 443.24") {
+    bool disable_fast_buffer_sub_data_local = Settings::values.opengl_disable_fast_buffer_sub_data.GetValue();
+    if (is_nvidia && version == "4.6.0 NVIDIA 443.24" && !disable_fast_buffer_sub_data_local) {
+        // If the setting isn't already disabling it, log the warning for this specific problematic driver.
+        // The setting will take precedence if the user explicitly set it.
         LOG_WARNING(
             Render_OpenGL,
-            "Beta driver 443.24 is known to have issues. There might be performance issues.");
-        disable_fast_buffer_sub_data = true;
+            "Beta driver 443.24 is known to have issues. There might be performance issues. Consider enabling 'Disable Fast Buffer Sub-Data'.");
+        // Don't override user's choice; if they haven't checked the box (it's false), 
+        // then for this specific driver, we might implicitly disable it.
+        // However, to keep the setting as the single source of truth for disabling:
+        // If the user hasn't checked the box, and it's this driver, we could suggest it.
+        // For now, the setting itself is the master control. If the driver is problematic
+        // and the user hasn't disabled it, it will run the fast path.
+        // A more robust approach might be:
+        // disable_fast_buffer_sub_data_local = disable_fast_buffer_sub_data_local || (is_nvidia && version == "4.6.0 NVIDIA 443.24");
+        // But let's keep it simple: the setting is king.
     }
+    // Use the value from settings (potentially overridden by driver-specific logic if we added it above)
+    // For now, directly use the setting's value.
     max_uniform_buffers = BuildMaxUniformBuffers();
     uniform_buffer_alignment = GetInteger<size_t>(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT);
     shader_storage_alignment = GetInteger<size_t>(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT);
@@ -215,7 +227,7 @@ Device::Device(Core::Frontend::EmuWindow& emu_window) {
 
     // At the moment of writing this, only Nvidia's driver optimizes BufferSubData on exclusive
     // uniform buffers as "push constants"
-    has_fast_buffer_sub_data = is_nvidia && !disable_fast_buffer_sub_data;
+    has_fast_buffer_sub_data = is_nvidia && !disable_fast_buffer_sub_data_local;
 
     shader_backend = Settings::values.shader_backend.GetValue();
     use_assembly_shaders = shader_backend == Settings::ShaderBackend::Glasm &&

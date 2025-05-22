@@ -28,6 +28,15 @@
 #include "video_core/delayed_destruction_ring.h"
 #include "video_core/engines/fermi_2d.h"
 #include "video_core/surface.h"
+#include "common/settings.h"
+#include "video_core/surface.h" // For IsPixelFormatASTC and PixelFormat enums
+#include <astcenc.h> // Official ARM ASTC decoder
+#include "common/settings.h"
+#include "video_core/surface.h" // For IsPixelFormatASTC and PixelFormat enums
+#include <astcenc.h> // Official ARM ASTC decoder
+#include "common/settings.h"
+#include "video_core/surface.h" // For IsPixelFormatASTC and PixelFormat enums
+#include <astcenc.h> // Official ARM ASTC decoder
 #include "video_core/texture_cache/descriptor_table.h"
 #include "video_core/texture_cache/image_base.h"
 #include "video_core/texture_cache/image_info.h"

@@ -155,6 +155,10 @@ ENUM(ConsoleMode, Handheld, Docked);
 
 ENUM(AppletMode, HLE, LLE);
 
+ENUM(VertexClampingMode, Disabled, Safe, Aggressive);
+
+ENUM(ShaderAccuracyMode, Fast, Accurate);
+
 template <typename Type>
 inline std::string CanonicalizeEnum(Type id) {
     const auto group = EnumMetadata<Type>::Canonicalizations();
