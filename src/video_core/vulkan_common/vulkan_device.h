@@ -36,19 +36,7 @@ VK_DEFINE_HANDLE(VmaAllocator)
 #define FOR_EACH_VK_FEATURE_1_3(FEATURE)                                                           \
     FEATURE(EXT, ShaderDemoteToHelperInvocation, SHADER_DEMOTE_TO_HELPER_INVOCATION,               \
             shader_demote_to_helper_invocation)                                                    \
-    FEATURE(EXT, SubgroupSizeControl, SUBGROUP_SIZE_CONTROL, subgroup_size_control)                \
-    FEATURE(KHR, DynamicRendering, DYNAMIC_RENDERING, dynamic_rendering)                           \
-    FEATURE(KHR, Synchronization2, SYNCHRONIZATION_2, synchronization2)                            \
-    FEATURE(KHR, ShaderIntegerDotProduct, SHADER_INTEGER_DOT_PRODUCT, shader_integer_dot_product)  \
-    FEATURE(EXT, PrivateData, PRIVATE_DATA, private_data)                                          \
-    FEATURE(EXT, PipelineCreationCacheControl, PIPELINE_CREATION_CACHE_CONTROL,                    \
-            pipeline_creation_cache_control)                                                       \
-    FEATURE(KHR, ZeroInitializeWorkgroupMemory, ZERO_INITIALIZE_WORKGROUP_MEMORY,                  \
-            zero_initialize_workgroup_memory)                                                      \
-    FEATURE(KHR, CopyCommands2, COPY_COMMANDS_2, copy_commands2)                                   \
-    FEATURE(EXT, TexelBufferAlignment, TEXEL_BUFFER_ALIGNMENT, texel_buffer_alignment)             \
-    FEATURE(KHR, FormatFeatureFlags2, FORMAT_FEATURE_FLAGS_2, format_feature_flags2)               \
-    FEATURE(EXT, 4444Formats, 4444_FORMATS, format_a4b4g4r4)
+    FEATURE(EXT, SubgroupSizeControl, SUBGROUP_SIZE_CONTROL, subgroup_size_control)
 
 // Define all features which may be used by the implementation and require an extension here.
 #define FOR_EACH_VK_FEATURE_EXT(FEATURE)                                                           \
@@ -58,6 +46,7 @@ VK_DEFINE_HANDLE(VmaAllocator)
     FEATURE(EXT, ExtendedDynamicState, EXTENDED_DYNAMIC_STATE, extended_dynamic_state)             \
     FEATURE(EXT, ExtendedDynamicState2, EXTENDED_DYNAMIC_STATE_2, extended_dynamic_state2)         \
     FEATURE(EXT, ExtendedDynamicState3, EXTENDED_DYNAMIC_STATE_3, extended_dynamic_state3)         \
+    FEATURE(EXT, 4444Formats, 4444_FORMATS, format_a4b4g4r4)                                       \
     FEATURE(EXT, IndexTypeUint8, INDEX_TYPE_UINT8, index_type_uint8)                               \
     FEATURE(EXT, LineRasterization, LINE_RASTERIZATION, line_rasterization)                        \
     FEATURE(EXT, PrimitiveTopologyListRestart, PRIMITIVE_TOPOLOGY_LIST_RESTART,                    \
