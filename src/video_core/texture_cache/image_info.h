@@ -42,6 +42,7 @@ struct ImageInfo {
     bool forced_flushed = false;
     bool dma_downloaded = false;
     bool is_sparse = false;
+    bool is_transient_attachment = false; ///< True if the image will be used as a transient attachment
 };
 
 } // namespace VideoCommon
