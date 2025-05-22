@@ -22,7 +22,7 @@ constexpr s32 SCORE_THRESHOLD = 3;
 
 struct DescriptorBank {
     DescriptorBankInfo info;
-    std::vector<vk::DescriptorPool> pools;
+    std::vector<PoolData> pools;
 };
 
 bool DescriptorBankInfo::IsSuperset(const DescriptorBankInfo& subset) const noexcept {
@@ -74,14 +74,18 @@ static void AllocatePool(const Device& device, DescriptorBank& bank) {
     add(VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, info.image_buffers);
     add(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, info.textures);
     add(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, info.images);
-    bank.pools.push_back(device.GetLogical().CreateDescriptorPool({
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-        .pNext = nullptr,
-        .flags = 0,
-        .maxSets = sets_per_pool,
-        .poolSizeCount = static_cast<u32>(pool_cursor),
-        .pPoolSizes = std::data(pool_sizes),
-    }));
+    bank.pools.push_back({
+        .pool = device.GetLogical().CreateDescriptorPool({
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .maxSets = sets_per_pool,
+            .poolSizeCount = static_cast<u32>(pool_cursor),
+            .pPoolSizes = std::data(pool_sizes),
+        }),
+        .last_submission_id_associated = 0, // Initialized for new pool
+        .previously_out_of_memory = false,  // Initialized for new pool
+    });
 }
 
 DescriptorAllocator::DescriptorAllocator(const Device& device_, MasterSemaphore& master_semaphore_,
@@ -103,23 +107,71 @@ vk::DescriptorSets DescriptorAllocator::AllocateDescriptors(size_t count) {
     VkDescriptorSetAllocateInfo allocate_info{
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
         .pNext = nullptr,
-        .descriptorPool = *bank->pools.back(),
+        .descriptorPool = VK_NULL_HANDLE, // Will be set below
         .descriptorSetCount = static_cast<u32>(count),
         .pSetLayouts = layouts.data(),
     };
-    vk::DescriptorSets new_sets = bank->pools.back().Allocate(allocate_info);
-    if (!new_sets.IsOutOfPoolMemory()) {
-        return new_sets;
+
+    // Attempt 1: Try the last pool first
+    if (!bank->pools.empty()) {
+        PoolData& last_pool_data = bank->pools.back();
+        allocate_info.descriptorPool = *last_pool_data.pool;
+        vk::DescriptorSets new_sets = last_pool_data.pool.Allocate(allocate_info);
+
+        if (!new_sets.IsOutOfPoolMemory()) {
+            last_pool_data.last_submission_id_associated = current_tick;
+            last_pool_data.previously_out_of_memory = false;
+            return new_sets;
+        } else {
+            // VK_ERROR_OUT_OF_POOL_MEMORY or VK_ERROR_FRAGMENTED_POOL
+            last_pool_data.previously_out_of_memory = true;
+        }
     }
-    // Our current pool is out of memory. Allocate a new one and retry
+
+    // Attempt 2: Iterate existing pools to find one to reset
+    for (PoolData& pool_data : bank->pools) {
+        if (pool_data.previously_out_of_memory &&
+            master_semaphore.LastCompletedFence() >= pool_data.last_submission_id_associated) {
+
+            LOG_DEBUG(Render_Vulkan, "Resetting VkDescriptorPool {}",
+                      fmt::ptr(*pool_data.pool));
+            [[maybe_unused]] VkResult reset_result =
+                device->GetLogical().ResetDescriptorPool(*pool_data.pool, 0);
+            // TODO: Log reset_result if not VK_SUCCESS?
+            // For now, assume reset is successful if it doesn't throw.
+
+            pool_data.previously_out_of_memory = false;
+            pool_data.last_submission_id_associated = 0;
+
+            allocate_info.descriptorPool = *pool_data.pool;
+            vk::DescriptorSets new_sets = pool_data.pool.Allocate(allocate_info);
+
+            if (!new_sets.IsOutOfPoolMemory()) {
+                pool_data.last_submission_id_associated = current_tick;
+                return new_sets;
+            } else {
+                pool_data.previously_out_of_memory = true; // Mark it again if allocation failed after reset
+            }
+        }
+    }
+
+    // Attempt 3: Allocate a new pool
     AllocatePool(*device, *bank);
-    allocate_info.descriptorPool = *bank->pools.back();
-    new_sets = bank->pools.back().Allocate(allocate_info);
+    PoolData& new_physical_pool_data = bank->pools.back();
+    allocate_info.descriptorPool = *new_physical_pool_data.pool;
+    vk::DescriptorSets new_sets = new_physical_pool_data.pool.Allocate(allocate_info);
+
     if (!new_sets.IsOutOfPoolMemory()) {
+        new_physical_pool_data.last_submission_id_associated = current_tick;
+        // new_physical_pool_data.previously_out_of_memory is already false by default
         return new_sets;
     }
-    // After allocating a new pool, we are out of memory again. We can't handle this from here.
-    throw vk::Exception(VK_ERROR_OUT_OF_POOL_MEMORY);
+
+    // If we are here, allocation from a brand new pool failed. This is critical.
+    // Log the error code from the allocation attempt on the new pool.
+    LOG_CRITICAL(Render_Vulkan, "Failed to allocate from a new descriptor pool. Error: {}",
+                 new_sets.GetResult());
+    throw vk::Exception(new_sets.GetResult());
 }
 
 DescriptorPool::DescriptorPool(const Device& device_, Scheduler& scheduler)

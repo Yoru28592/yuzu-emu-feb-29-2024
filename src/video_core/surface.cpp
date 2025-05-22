@@ -401,6 +401,58 @@ std::pair<u32, u32> GetASTCBlockSize(PixelFormat format) {
     return {DefaultBlockWidth(format), DefaultBlockHeight(format)};
 }
 
+bool GetASTCBlockDimensions(PixelFormat format, u32& block_x, u32& block_y, u32& block_z) {
+    block_z = 1; // ASTC is primarily 2D in this context, 3D ASTC is rare and handled differently
+    switch (format) {
+    case PixelFormat::ASTC_2D_4X4_UNORM:
+    case PixelFormat::ASTC_2D_4X4_SRGB:
+        block_x = 4; block_y = 4; return true;
+    case PixelFormat::ASTC_2D_5X4_UNORM:
+    case PixelFormat::ASTC_2D_5X4_SRGB:
+        block_x = 5; block_y = 4; return true;
+    case PixelFormat::ASTC_2D_5X5_UNORM:
+    case PixelFormat::ASTC_2D_5X5_SRGB:
+        block_x = 5; block_y = 5; return true;
+    case PixelFormat::ASTC_2D_6X5_UNORM:
+    case PixelFormat::ASTC_2D_6X5_SRGB:
+        block_x = 6; block_y = 5; return true;
+    case PixelFormat::ASTC_2D_6X6_UNORM:
+    case PixelFormat::ASTC_2D_6X6_SRGB:
+        block_x = 6; block_y = 6; return true;
+    case PixelFormat::ASTC_2D_8X5_UNORM:
+    case PixelFormat::ASTC_2D_8X5_SRGB:
+        block_x = 8; block_y = 5; return true;
+    case PixelFormat::ASTC_2D_8X6_UNORM:
+    case PixelFormat::ASTC_2D_8X6_SRGB:
+        block_x = 8; block_y = 6; return true;
+    case PixelFormat::ASTC_2D_8X8_UNORM:
+    case PixelFormat::ASTC_2D_8X8_SRGB:
+        block_x = 8; block_y = 8; return true;
+    case PixelFormat::ASTC_2D_10X5_UNORM:
+    case PixelFormat::ASTC_2D_10X5_SRGB:
+        block_x = 10; block_y = 5; return true;
+    case PixelFormat::ASTC_2D_10X6_UNORM:
+    case PixelFormat::ASTC_2D_10X6_SRGB:
+        block_x = 10; block_y = 6; return true;
+    case PixelFormat::ASTC_2D_10X8_UNORM:
+    case PixelFormat::ASTC_2D_10X8_SRGB:
+        block_x = 10; block_y = 8; return true;
+    case PixelFormat::ASTC_2D_10X10_UNORM:
+    case PixelFormat::ASTC_2D_10X10_SRGB:
+        block_x = 10; block_y = 10; return true;
+    case PixelFormat::ASTC_2D_12X10_UNORM:
+    case PixelFormat::ASTC_2D_12X10_SRGB:
+        block_x = 12; block_y = 10; return true;
+    case PixelFormat::ASTC_2D_12X12_UNORM:
+    case PixelFormat::ASTC_2D_12X12_SRGB:
+        block_x = 12; block_y = 12; return true;
+    default:
+        // Not an ASTC format or unknown block size
+        LOG_ERROR(HW_GPU, "Unknown ASTC block dimensions for format {}", static_cast<u32>(format));
+        return false;
+    }
+}
+
 u64 TranscodedAstcSize(u64 base_size, PixelFormat format) {
     constexpr u64 RGBA8_PIXEL_SIZE = 4;
     const u64 base_block_size = static_cast<u64>(DefaultBlockWidth(format)) *

@@ -48,9 +48,13 @@ void RefreshXfbState(VideoCommon::TransformFeedbackState& state, const Maxwell& 
 }
 } // Anonymous namespace
 
+#include "common/settings.h"
+
 void FixedPipelineState::Refresh(Tegra::Engines::Maxwell3D& maxwell3d, DynamicFeatures& features) {
     const Maxwell& regs = maxwell3d.regs;
     const auto topology_ = maxwell3d.draw_manager->GetDrawState().topology;
+
+    vertex_clamping_mode = Settings::values.vertex_clamping_mode.GetValue();
 
     raw1 = 0;
     extended_dynamic_state.Assign(features.has_extended_dynamic_state ? 1 : 0);
@@ -261,11 +265,17 @@ void FixedPipelineState::DynamicState::Refresh3(const Maxwell& regs) {
 }
 
 size_t FixedPipelineState::Hash() const noexcept {
+    // Include vertex_clamping_mode in the hash calculation by ensuring Size() is correct.
+    // CityHash64 will use the correct size based on the updated Size() method.
     const u64 hash = Common::CityHash64(reinterpret_cast<const char*>(this), Size());
     return static_cast<size_t>(hash);
 }
 
 bool FixedPipelineState::operator==(const FixedPipelineState& rhs) const noexcept {
+    // Compare all members including vertex_clamping_mode by using the correct Size().
+    if (Size() != rhs.Size()) { // Should not happen if types are the same
+        return false;
+    }
     return std::memcmp(this, &rhs, Size()) == 0;
 }
 

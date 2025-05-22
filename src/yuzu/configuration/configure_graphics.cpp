@@ -21,6 +21,8 @@
 #include <QPushButton>
 #include <QSlider>
 #include <QStringLiteral>
+#include <QTabWidget>     // Added for graphicsTabWidget
+#include <QListWidgetItem> // Added for gpu_extensions_listwidget
 #include <QtCore/qobjectdefs.h>
 #include <qabstractbutton.h>
 #include <qboxlayout.h>
@@ -96,7 +98,17 @@ ConfigureGraphics::ConfigureGraphics(
 
     ui->setupUi(this);
 
-    Setup(builder);
+    ui->setupUi(this); // Ensure ui is setup before accessing its members in Setup
+
+    // Initialize UI element pointers from .ui file *before* Setup() is called,
+    // as Setup() might use them.
+    graphicsTabWidget = ui->graphicsTabWidget;
+    gpuExtensionsTab = ui->gpuExtensionsTab;
+    enable_dynamic_state_checkbox = ui->enable_dynamic_state_checkbox;
+    dynamic_state_description_label = ui->dynamic_state_description_label;
+    gpu_extensions_listwidget = ui->gpu_extensions_listwidget;
+
+    Setup(builder); // Now call Setup
 
     for (const auto& device : vulkan_devices) {
         vulkan_device_combobox->addItem(device);
@@ -105,7 +117,7 @@ ConfigureGraphics::ConfigureGraphics(
     UpdateBackgroundColorButton(QColor::fromRgb(Settings::values.bg_red.GetValue(),
                                                 Settings::values.bg_green.GetValue(),
                                                 Settings::values.bg_blue.GetValue()));
-    UpdateAPILayout();
+    UpdateAPILayout(); // This will now correctly handle the GPU extensions tab visibility
     PopulateVSyncModeSelection(false); //< must happen after UpdateAPILayout
 
     // VSync setting needs to be determined after populating the VSync combobox
@@ -264,6 +276,34 @@ void ConfigureGraphics::Setup(const ConfigurationShared::Builder& builder) {
     api_layout->addWidget(api_grid_widget);
 
     QLayout& graphics_layout = *ui->graphics_widget->layout();
+
+    // Setup for enable_dynamic_state_checkbox from RendererAdvanced
+    // Note: The actual QCheckBox widget is ui->enable_dynamic_state_checkbox
+    // builder.BuildWidget will find it by its objectName if it's a direct child of 'this'
+    // or we can pass the pointer. Since it's in a tab, direct ui access is fine.
+    bool found_dynamic_state_setting = false;
+    for (const auto setting : Settings::values.linkage.by_category[Settings::Category::RendererAdvanced]) {
+        if (setting->Id() == Settings::values.enable_dynamic_state.Id()) {
+            // We pass 'this' as parent so builder can find children by objectName.
+            // The QCheckBox itself is already created by ui->setupUi(this).
+            // builder.BuildWidget here primarily sets up the configuration linkage.
+            ConfigurationShared::Widget* built_widget_info = builder.BuildWidget(setting, apply_funcs, ConfigurationShared::RequestType::CheckBox, false, 1.0f, ui->enable_dynamic_state_checkbox);
+            if (built_widget_info == nullptr || !built_widget_info->Valid()) {
+                 LOG_ERROR(Frontend, "Failed to build widget for enable_dynamic_state");
+                 if (built_widget_info) built_widget_info->deleteLater();
+            }
+            // If built_widget_info created a new widget, it needs to be managed or deleted.
+            // But since we pass ui->enable_dynamic_state_checkbox, it should use that.
+            // If it returns the passed widget, no new widget is created.
+            // If it wraps it, the wrapper might need deletion if not parented.
+            // However, builder.BuildWidget typically handles parenting or returns a simple struct.
+            found_dynamic_state_setting = true;
+            break;
+        }
+    }
+    if (!found_dynamic_state_setting) {
+        LOG_ERROR(Frontend, "Could not find enable_dynamic_state setting to build its widget logic.");
+    }
 
     std::map<u32, QWidget*> hold_graphics;
     std::vector<QWidget*> hold_api;
@@ -515,6 +555,51 @@ void ConfigureGraphics::UpdateAPILayout() {
                       static_cast<int>(shader_backend)));
     } else if (is_vulkan && static_cast<int>(vulkan_device) < vulkan_device_combobox->count()) {
         vulkan_device_combobox->setCurrentIndex(vulkan_device);
+    }
+
+    // Manage GPU Extensions Tab visibility and content
+    const int gpu_extensions_tab_index = graphicsTabWidget->indexOf(gpuExtensionsTab);
+    if (gpu_extensions_tab_index != -1) {
+        graphicsTabWidget->setTabVisible(gpu_extensions_tab_index, is_vulkan);
+    }
+
+    if (is_vulkan) {
+        const int current_device_idx = vulkan_device_combobox->currentIndex();
+        // records might be empty if Vulkan is not available or no devices found.
+        const bool device_selected = current_device_idx >= 0 && !records.empty() && current_device_idx < static_cast<int>(records.size());
+
+        // Set visibility of individual controls within the tab
+        enable_dynamic_state_checkbox->setVisible(device_selected);
+        dynamic_state_description_label->setVisible(device_selected);
+        gpu_extensions_listwidget->setVisible(device_selected);
+
+        gpu_extensions_listwidget->clear();
+        if (device_selected) {
+            const auto& record = records[current_device_idx];
+            if (!record.extensions.empty()) {
+                for (const auto& ext_name : record.extensions) {
+                    gpu_extensions_listwidget->addItem(QString::fromStdString(ext_name));
+                }
+            } else {
+                // Optionally, add a placeholder item if there are no extensions
+                 gpu_extensions_listwidget->addItem(tr("No extensions found for this device."));
+                 gpu_extensions_listwidget->setEnabled(false); // Disable list if empty or placeholder
+            }
+             gpu_extensions_listwidget->setEnabled(!record.extensions.empty());
+
+        } else {
+            // No valid device selected, or records are empty
+            gpu_extensions_listwidget->addItem(tr("Select a Vulkan device to see its extensions."));
+            gpu_extensions_listwidget->setEnabled(false);
+        }
+    } else {
+        // Not Vulkan, ensure all controls in the tab are hidden and list cleared
+        // The tab itself is hidden by graphicsTabWidget->setTabVisible above.
+        // Hiding individual controls is redundant if the tab is hidden, but good for safety.
+        enable_dynamic_state_checkbox->setVisible(false);
+        dynamic_state_description_label->setVisible(false);
+        gpu_extensions_listwidget->setVisible(false);
+        gpu_extensions_listwidget->clear();
     }
 }
 

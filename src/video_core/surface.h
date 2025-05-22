@@ -517,6 +517,10 @@ size_t PixelComponentSizeBitsInteger(PixelFormat format);
 
 std::pair<u32, u32> GetASTCBlockSize(PixelFormat format);
 
+// Helper to get ASTC block dimensions
+// Returns true on success, false if format is not ASTC or unknown
+bool GetASTCBlockDimensions(PixelFormat format, u32& block_x, u32& block_y, u32& block_z);
+
 u64 TranscodedAstcSize(u64 base_size, PixelFormat format);
 
 } // namespace VideoCore::Surface

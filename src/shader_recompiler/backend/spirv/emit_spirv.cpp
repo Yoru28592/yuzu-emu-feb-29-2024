@@ -183,9 +183,51 @@ void Traverse(EmitContext& ctx, IR::Program& program) {
             break;
         }
         case IR::AbstractSyntaxNode::Type::Return:
+            if (ctx.stage == Stage::Vertex || ctx.stage == Stage::VertexA || ctx.stage == Stage::VertexB || ctx.stage == Stage::Geometry) {
+                if (Settings::values.vertex_clamping_mode.GetValue() != Settings::VertexClampingMode::Disabled) {
+                    const Id position_ptr = ctx.output_position_ptr;
+                    if (position_ptr != 0) { // Ensure gl_Position is actually used/defined
+                        const Id current_pos_vec4 = ctx.OpLoad(ctx.VecF32(4), position_ptr);
+                        const Id current_pos_xyz = ctx.OpVectorShuffle(ctx.VecF32(3), current_pos_vec4, current_pos_vec4, 0, 1, 2);
+
+                        float limit_val = (Settings::values.vertex_clamping_mode.GetValue() == Settings::VertexClampingMode::Safe) ? 1e5f : 1e4f;
+                        
+                        const Id min_vec_val = ctx.ConstVec(ctx.VecF32(3), -limit_val, -limit_val, -limit_val);
+                        const Id max_vec_val = ctx.ConstVec(ctx.VecF32(3), limit_val, limit_val, limit_val);
+                        
+                        const Id clamped_xyz = ctx.OpFClamp(ctx.VecF32(3), current_pos_xyz, min_vec_val, max_vec_val);
+                        
+                        const Id original_w = ctx.OpVectorExtractDynamic(ctx.F32[1], current_pos_vec4, ctx.Const(3u));
+                        
+                        const Id final_pos_vec4 = ctx.OpCompositeConstruct(ctx.VecF32(4), clamped_xyz, original_w);
+                        ctx.OpStore(position_ptr, final_pos_vec4);
+                    }
+                }
+            }
             ctx.OpReturn();
             break;
         case IR::AbstractSyntaxNode::Type::Unreachable:
+            if (ctx.stage == Stage::Vertex || ctx.stage == Stage::VertexA || ctx.stage == Stage::VertexB || ctx.stage == Stage::Geometry) {
+                if (Settings::values.vertex_clamping_mode.GetValue() != Settings::VertexClampingMode::Disabled) {
+                    const Id position_ptr = ctx.output_position_ptr;
+                     if (position_ptr != 0) { // Ensure gl_Position is actually used/defined
+                        const Id current_pos_vec4 = ctx.OpLoad(ctx.VecF32(4), position_ptr);
+                        const Id current_pos_xyz = ctx.OpVectorShuffle(ctx.VecF32(3), current_pos_vec4, current_pos_vec4, 0, 1, 2);
+
+                        float limit_val = (Settings::values.vertex_clamping_mode.GetValue() == Settings::VertexClampingMode::Safe) ? 1e5f : 1e4f;
+                        
+                        const Id min_vec_val = ctx.ConstVec(ctx.VecF32(3), -limit_val, -limit_val, -limit_val);
+                        const Id max_vec_val = ctx.ConstVec(ctx.VecF32(3), limit_val, limit_val, limit_val);
+                        
+                        const Id clamped_xyz = ctx.OpFClamp(ctx.VecF32(3), current_pos_xyz, min_vec_val, max_vec_val);
+                        
+                        const Id original_w = ctx.OpVectorExtractDynamic(ctx.F32[1], current_pos_vec4, ctx.Const(3u));
+                        
+                        const Id final_pos_vec4 = ctx.OpCompositeConstruct(ctx.VecF32(4), clamped_xyz, original_w);
+                        ctx.OpStore(position_ptr, final_pos_vec4);
+                    }
+                }
+            }
             ctx.OpUnreachable();
             break;
         }
@@ -492,6 +534,17 @@ std::vector<u32> EmitSPIRV(const Profile& profile, const RuntimeInfo& runtime_in
     }
     SetupCapabilities(profile, program.info, ctx);
     SetupTransformFeedbackCapabilities(ctx, main);
+
+    // Add precision hints based on Shader Accuracy setting
+    if (Settings::values.shader_accuracy_mode.GetValue() == Settings::ShaderAccuracyMode::Accurate) {
+        // NoContraction ensures that operations like FMA are not generated implicitly
+        // and that floating point expressions are not reordered in ways that might change precision.
+        ctx.AddExecutionMode(main, spv::ExecutionMode::NoContraction);
+        // Note: Other modes like SignedZeroInfNanPreserve are typically based on hardware caps (profile)
+        // and already handled by SetupSignedNanCapabilities. If "Accurate" needed to force them
+        // even without hardware support (leading to emulation), that would be a more complex change.
+    }
+
     PatchPhiNodes(program, ctx);
     return ctx.Assemble();
 }

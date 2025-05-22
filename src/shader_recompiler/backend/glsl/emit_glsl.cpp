@@ -155,6 +155,21 @@ void EmitCode(EmitContext& ctx, const IR::Program& program) {
             break;
         case IR::AbstractSyntaxNode::Type::Return:
         case IR::AbstractSyntaxNode::Type::Unreachable:
+            // Add vertex clamping before returning
+            if (ctx.stage == Stage::Vertex || ctx.stage == Stage::VertexA || ctx.stage == Stage::VertexB || ctx.stage == Stage::Geometry) {
+                switch (Settings::values.vertex_clamping_mode.GetValue()) {
+                case Settings::VertexClampingMode::Safe:
+                    ctx.Add("gl_Position.xyz = clamp(gl_Position.xyz, vec3(-1e5), vec3(1e5));");
+                    break;
+                case Settings::VertexClampingMode::Aggressive:
+                    ctx.Add("gl_Position.xyz = clamp(gl_Position.xyz, vec3(-1e4), vec3(1e4));");
+                    break;
+                case Settings::VertexClampingMode::Disabled:
+                default:
+                    // No clamping
+                    break;
+                }
+            }
             ctx.Add("return;");
             break;
         case IR::AbstractSyntaxNode::Type::Loop:
@@ -197,7 +212,9 @@ void DefineVariables(const EmitContext& ctx, std::string& header) {
         const auto& tracker{ctx.var_alloc.GetUseTracker(type)};
         const auto type_name{ctx.var_alloc.GetGlslType(type)};
         const bool has_precise_bug{ctx.stage == Stage::Fragment && ctx.profile.has_gl_precise_bug};
-        const auto precise{!has_precise_bug && IsPreciseType(type) ? "precise " : ""};
+        const bool use_precise_qualifier = (!has_precise_bug && IsPreciseType(type)) ||
+                                           (IsPreciseType(type) && Settings::values.shader_accuracy_mode.GetValue() == Settings::ShaderAccuracyMode::Accurate);
+        const auto precise{use_precise_qualifier ? "precise " : ""};
         // Temps/return types that are never used are stored at index 0
         if (tracker.uses_temp) {
             header += fmt::format("{}{} t{}={}(0);", precise, type_name,

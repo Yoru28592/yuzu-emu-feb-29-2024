@@ -258,6 +258,11 @@ public:
         return present_queue;
     }
 
+    /// Returns the dedicated or shared transfer queue.
+    vk::Queue GetTransferQueue() const {
+        return transfer_queue;
+    }
+
     /// Returns main graphics queue family index.
     u32 GetGraphicsFamily() const {
         return graphics_family;
@@ -266,6 +271,16 @@ public:
     /// Returns main present queue family index.
     u32 GetPresentFamily() const {
         return present_family;
+    }
+
+    /// Returns transfer queue family index.
+    u32 GetTransferQueueFamilyIndex() const {
+        return transfer_family;
+    }
+
+    /// Returns true if a dedicated transfer queue (different from graphics) was found.
+    bool HasDedicatedTransferQueue() const {
+        return has_dedicated_transfer_queue;
     }
 
     /// Returns the current Vulkan API version provided in Vulkan-formatted version numbers.
@@ -761,9 +776,12 @@ private:
     vk::Device logical;          ///< Logical device.
     vk::Queue graphics_queue;    ///< Main graphics queue.
     vk::Queue present_queue;     ///< Main present queue.
+    vk::Queue transfer_queue;    ///< Dedicated or shared transfer queue.
     u32 instance_version{};      ///< Vulkan instance version.
     u32 graphics_family{};       ///< Main graphics queue family index.
     u32 present_family{};        ///< Main present queue family index.
+    u32 transfer_family{};       ///< Transfer queue family index.
+    bool has_dedicated_transfer_queue{false}; ///< True if transfer_family is different from graphics_family
 
     struct Extensions {
 #define EXTENSION(prefix, macro_name, var_name) bool var_name{};
