@@ -156,6 +156,7 @@ private:
 
     std::unordered_map<ComputePipelineCacheKey, std::unique_ptr<ComputePipeline>> compute_cache;
     std::unordered_map<GraphicsPipelineCacheKey, std::unique_ptr<GraphicsPipeline>> graphics_cache;
+    std::mutex cache_access_mutex; ///< Mutex to protect graphics_cache and compute_cache during hot-reloading
 
     ShaderPools main_pools;
 
