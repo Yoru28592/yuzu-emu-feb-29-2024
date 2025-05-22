@@ -22,6 +22,7 @@
 #include "video_core/renderer_vulkan/vk_staging_buffer_pool.h"
 #include "video_core/texture_cache/formatter.h"
 #include "video_core/texture_cache/samples_helper.h"
+#include "common/settings.h"
 #include "video_core/texture_cache/util.h"
 #include "video_core/vulkan_common/vulkan_device.h"
 #include "video_core/vulkan_common/vulkan_memory_allocator.h"
@@ -1371,23 +1372,46 @@ Image::Image(TextureCacheRuntime& runtime_, const ImageInfo& info_, GPUVAddr gpu
       runtime{&runtime_}, original_image(MakeImage(runtime_.device, runtime_.memory_allocator, info,
                                                    runtime->ViewFormats(info.format))),
       aspect_mask(ImageAspectMask(info.format)) {
-    if (IsPixelFormatASTC(info.format) && !runtime->device.IsOptimalAstcSupported()) {
-        switch (Settings::values.accelerate_astc.GetValue()) {
-        case Settings::AstcDecodeMode::Gpu:
-            if (Settings::values.astc_recompression.GetValue() ==
-                    Settings::AstcRecompression::Uncompressed &&
-                info.size.depth == 1) {
-                flags |= VideoCommon::ImageFlagBits::AcceleratedUpload;
+    if (IsPixelFormatASTC(info_.format)) { // Check original info_ for ASTC
+        if (Settings::values.recompress_astc_textures.GetValue()) {
+            LOG_DEBUG(Render_Vulkan, "Recompressing ASTC texture ({}x{}x{}) from {} to RGBA8",
+                      info_.size.width, info_.size.height, info_.size.depth, VideoCommon::GetPixelFormatName(info_.format));
+            // Store original format before changing this->info
+            this->original_pixel_format = info_.format;
+            // Modify a copy of info (this->info is already a copy of info_ at this point)
+            this->info.format = PixelFormat::A8B8G8R8_UNORM; // Or another suitable RGBA8 format
+            this->info.block.width = 1;
+            this->info.block.height = 1;
+            this->info.block.depth = 1;
+            this->info.pitch = this->info.size.width * 4; // 4 bytes per pixel for RGBA8
+            this->info.layer_stride = this->info.pitch * this->info.size.height;
+
+            // Mark as converted so that upload paths know the data is now RGBA8
+            // and also to signify that the original format was different.
+            flags |= VideoCommon::ImageFlagBits::Converted;
+            flags |= VideoCommon::ImageFlagBits::CostlyLoad; // Recompression is costly
+            // Ensure it doesn't try to use GPU ASTC decoding path if that was originally planned
+            flags &= ~VideoCommon::ImageFlagBits::AcceleratedUpload;
+            flags &= ~VideoCommon::ImageFlagBits::AsynchronousDecode; // If we handle it synchronously now
+
+        } else if (!runtime->device.IsOptimalAstcSupported()) { // Original logic if not recompressing
+            switch (Settings::values.accelerate_astc.GetValue()) {
+            case Settings::AstcDecodeMode::Gpu:
+                if (Settings::values.astc_recompression.GetValue() ==
+                        Settings::AstcRecompression::Uncompressed &&
+                    info.size.depth == 1) {
+                    flags |= VideoCommon::ImageFlagBits::AcceleratedUpload;
+                }
+                break;
+            case Settings::AstcDecodeMode::CpuAsynchronous:
+                flags |= VideoCommon::ImageFlagBits::AsynchronousDecode;
+                break;
+            default:
+                break;
             }
-            break;
-        case Settings::AstcDecodeMode::CpuAsynchronous:
-            flags |= VideoCommon::ImageFlagBits::AsynchronousDecode;
-            break;
-        default:
-            break;
+            flags |= VideoCommon::ImageFlagBits::Converted;
+            flags |= VideoCommon::ImageFlagBits::CostlyLoad;
         }
-        flags |= VideoCommon::ImageFlagBits::Converted;
-        flags |= VideoCommon::ImageFlagBits::CostlyLoad;
     }
     if (IsPixelFormatBCn(info.format) && !runtime->device.IsOptimalBcnSupported()) {
         flags |= VideoCommon::ImageFlagBits::Converted;

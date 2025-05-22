@@ -96,6 +96,7 @@ struct ImageBase {
     size_t channel = 0;
 
     ImageFlagBits flags = ImageFlagBits::CpuModified;
+    PixelFormat original_pixel_format = PixelFormat::Invalid; ///< Stores the original format if recompressed
 
     GPUVAddr gpu_addr = 0;
     VAddr cpu_addr = 0;

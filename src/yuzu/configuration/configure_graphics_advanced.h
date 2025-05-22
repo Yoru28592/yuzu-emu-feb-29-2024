@@ -40,6 +40,11 @@ private:
     void RetranslateUI();
 
     std::unique_ptr<Ui::ConfigureGraphicsAdvanced> ui;
+    QComboBox* vertex_clamping;
+    QCheckBox* recompress_astc_textures;
+    QComboBox* shader_accuracy_mode_combobox;
+    QCheckBox* enable_nvidia_byte_swap_workaround;
+    QCheckBox* opengl_disable_fast_buffer_sub_data;
 
     const Core::System& system;
 
