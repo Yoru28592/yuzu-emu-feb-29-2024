@@ -280,6 +280,55 @@ size_t GetTotalPipelineWorkers() {
 
 } // Anonymous namespace
 
+void PipelineCache::RequestShaderReload(u64 shader_hash) {
+    std::scoped_lock lock{cache_access_mutex};
+    u32 invalidated_graphics_pipelines = 0;
+    u32 invalidated_compute_pipelines = 0;
+
+    // Invalidate graphics pipelines
+    for (auto it = graphics_cache.begin(); it != graphics_cache.end();) {
+        bool found_hash = false;
+        for (const auto& hash : it->first.unique_hashes) {
+            if (hash == shader_hash) {
+                found_hash = true;
+                break;
+            }
+        }
+        if (found_hash) {
+            LOG_INFO(Render_Vulkan, "Hot-reload: Invalidating graphics pipeline for key hash 0x{:016x} due to shader hash 0x{:016x}", it->first.Hash(), shader_hash);
+            it = graphics_cache.erase(it); // Erase and get next valid iterator
+            invalidated_graphics_pipelines++;
+        } else {
+            ++it;
+        }
+    }
+
+    // Invalidate compute pipelines
+    for (auto it = compute_cache.begin(); it != compute_cache.end();) {
+        if (it->first.unique_hash == shader_hash) {
+            LOG_INFO(Render_Vulkan, "Hot-reload: Invalidating compute pipeline for key hash 0x{:016x} (shader hash 0x{:016x})", it->first.Hash(), shader_hash);
+            it = compute_cache.erase(it); // Erase and get next valid iterator
+            invalidated_compute_pipelines++;
+        } else {
+            ++it;
+        }
+    }
+
+    if (invalidated_graphics_pipelines > 0 || invalidated_compute_pipelines > 0) {
+        LOG_INFO(Render_Vulkan, "Hot-reload: Invalidated {} graphics and {} compute pipelines for shader hash 0x{:016x}",
+                 invalidated_graphics_pipelines, invalidated_compute_pipelines, shader_hash);
+        // Reset current_pipeline if it was one of those invalidated.
+        // This is a simple approach; a more robust one might involve checking if current_pipeline's shaders match.
+        // For now, if any graphics pipelines were invalidated, it's safer to clear the current one
+        // to force a re-check, though it might not have been affected.
+        if (invalidated_graphics_pipelines > 0) {
+            current_pipeline = nullptr;
+        }
+    } else {
+        LOG_INFO(Render_Vulkan, "Hot-reload: No pipelines found for shader hash 0x{:016x}", shader_hash);
+    }
+}
+
 size_t ComputePipelineCacheKey::Hash() const noexcept {
     const u64 hash = Common::CityHash64(reinterpret_cast<const char*>(this), sizeof *this);
     return static_cast<size_t>(hash);

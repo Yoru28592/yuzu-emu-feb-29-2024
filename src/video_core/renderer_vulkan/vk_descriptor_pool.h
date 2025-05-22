@@ -11,10 +11,15 @@
 #include "video_core/renderer_vulkan/vk_resource_pool.h"
 #include "video_core/vulkan_common/vulkan_wrapper.h"
 
+#include "common/logging/log.h" // For LOG_DEBUG
+
 namespace Vulkan {
 
 class Device;
 class Scheduler;
+
+// Forward declaration
+struct PoolData;
 
 struct DescriptorBank;
 
@@ -28,6 +33,13 @@ struct DescriptorBankInfo {
     u32 textures{};        ///< Number of texture descriptors
     u32 images{};          ///< Number of image descriptors
     s32 score{};           ///< Number of descriptors in total
+};
+
+/// Holds a VkDescriptorPool and its associated metadata for reset logic.
+struct PoolData {
+    vk::DescriptorPool pool;
+    u64 last_submission_id_associated{}; ///< MasterSemaphore tick when the last successful allocation occurred.
+    bool previously_out_of_memory{false}; ///< True if this pool previously failed an allocation.
 };
 
 class DescriptorAllocator final : public ResourcePool {

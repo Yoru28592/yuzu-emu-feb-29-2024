@@ -133,6 +133,10 @@ constexpr VkBorderColor ConvertBorderColor(const std::array<float, 4>& color) {
         flags |= VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT;
     }
     const auto [samples_x, samples_y] = VideoCommon::SamplesLog2(info.num_samples);
+    VkImageUsageFlags usage = ImageUsageFlags(format_info, info.format);
+    if (info.is_transient_attachment) {
+        usage |= VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
+    }
     return VkImageCreateInfo{
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .pNext = nullptr,
@@ -148,7 +152,7 @@ constexpr VkBorderColor ConvertBorderColor(const std::array<float, 4>& color) {
         .arrayLayers = static_cast<u32>(info.resources.layers),
         .samples = ConvertSampleCount(info.num_samples),
         .tiling = VK_IMAGE_TILING_OPTIMAL,
-        .usage = ImageUsageFlags(format_info, info.format),
+        .usage = usage,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .queueFamilyIndexCount = 0,
         .pQueueFamilyIndices = nullptr,

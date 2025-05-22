@@ -123,6 +123,8 @@ public:
     }
 
     std::mutex submit_mutex;
+    std::vector<VkSemaphore> semaphores_to_wait;
+    std::vector<VkPipelineStageFlags> wait_dst_stage_masks;
 
 private:
     class Command {
