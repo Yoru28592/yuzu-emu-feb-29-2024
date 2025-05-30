@@ -1,0 +1,26 @@
+{
+  "name": "Yuzu Dev Container",
+  "image": "mcr.microsoft.com/devcontainers/cpp:latest", // Using a Microsoft-provided C++ image
+  "features": {
+    "ghcr.io/devcontainers/features/cmake:1": {
+        "version": "latest"
+    },
+    "ghcr.io/devcontainers/features/ninja-build:1": {
+        "version": "latest"
+    },
+    "ghcr.io/devcontainers/features/git:1": {
+        "version": "latest"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools",
+        "ms-vscode.cpptools-extension-pack" // C++ extension pack for comprehensive C++ support
+      ]
+    }
+  },
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y wget libvulkan-dev lunarg-vulkan-sdk && echo 'Dev container configured with Vulkan SDK.' || echo 'Vulkan SDK installation might have had issues, or may need manual steps. Please check https://vulkan.lunarg.com/sdk/home#linux for official instructions.' "
+  // Further commands to install Vulkan SDK and other dependencies will be added in the next step.
+}
