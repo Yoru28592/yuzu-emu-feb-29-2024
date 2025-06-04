@@ -9,22 +9,26 @@ jobs:
 
     steps:
     - name: Checkout source with full history
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
-        submodules: true
+        submodules: false
+        persist-credentials: false
 
-    - name: Force recursive submodule update
-      run: git submodule update --init --recursive
+    - name: Manually init submodules (deep + safe)
+      run: |
+        git config --global url."https://github.com/".insteadOf git@github.com:
+        git submodule sync --recursive
+        git submodule update --init --force --recursive --depth 1
 
     - name: Install dependencies
       run: |
         sudo apt update
         sudo apt install -y git cmake ninja-build pkg-config qtbase5-dev qtdeclarative5-dev \
-        libopus-dev libxrandr-dev libxinerama-dev libxi-dev libgl1-mesa-dev \
-        libxcb-keysyms1-dev libx11-dev libxext-dev libasound2-dev libsamplerate0-dev \
-        libpulse-dev libavcodec-dev libavformat-dev libswscale-dev \
-        libavutil-dev libssl-dev python3 python3-pip
+          libopus-dev libxrandr-dev libxinerama-dev libxi-dev libgl1-mesa-dev \
+          libxcb-keysyms1-dev libx11-dev libxext-dev libasound2-dev libsamplerate0-dev \
+          libpulse-dev libavcodec-dev libavformat-dev libswscale-dev libavutil-dev \
+          libssl-dev python3 python3-pip
 
     - name: Configure and build
       run: |
@@ -32,7 +36,7 @@ jobs:
         cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release
         ninja -j$(nproc)
 
-    - name: Upload build
+    - name: Upload build output
       uses: actions/upload-artifact@v4
       with:
         name: yuzu-build
