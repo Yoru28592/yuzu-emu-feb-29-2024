@@ -11,7 +11,7 @@ jobs:
     - name: Checkout source
       uses: actions/checkout@v3
       with:
-        submodules: recursive   # This is essential for your `.gitmodules`!
+        submodules: recursive
 
     - name: Install dependencies
       run: |
@@ -29,7 +29,7 @@ jobs:
         ninja -j$(nproc)
 
     - name: Upload build
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: yuzu-build
         path: build/bin
