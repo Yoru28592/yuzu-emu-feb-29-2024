@@ -8,12 +8,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout source
+    - name: Checkout source with full history
       uses: actions/checkout@v3
       with:
-        submodules: recursive
+        fetch-depth: 0
+        submodules: true
 
-    - name: Force update submodules
+    - name: Force recursive submodule update
       run: git submodule update --init --recursive
 
     - name: Install dependencies
