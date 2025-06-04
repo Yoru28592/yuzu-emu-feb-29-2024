@@ -1,37 +1,35 @@
-name: Build Yuzu with Make
+name: Build Yuzu
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest  # Using Linux for Make
+    runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
+    - name: Checkout source
       uses: actions/checkout@v3
+      with:
+        submodules: recursive   # This is essential for your `.gitmodules`!
 
     - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt install -y build-essential cmake
+        sudo apt install -y git cmake ninja-build pkg-config qtbase5-dev qtdeclarative5-dev \
+        libopus-dev libxrandr-dev libxinerama-dev libxi-dev libgl1-mesa-dev \
+        libxcb-keysyms1-dev libx11-dev libxext-dev libasound2-dev libsamplerate0-dev \
+        libpulse-dev libavcodec-dev libavformat-dev libswscale-dev \
+        libavutil-dev libssl-dev python3 python3-pip
 
-    - name: Generate Makefile
+    - name: Configure and build
       run: |
-        mkdir build
-        cd build
-        cmake .. -G "Unix Makefiles"
+        mkdir build && cd build
+        cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release
+        ninja -j$(nproc)
 
-    - name: Compile with Make
-      run: |
-        cd build
-        make -j$(nproc)
-
-    - name: Upload Build Artifact
+    - name: Upload build
       uses: actions/upload-artifact@v3
       with:
         name: yuzu-build
-        path: build/
+        path: build/bin
